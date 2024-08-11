@@ -12,7 +12,8 @@ uniform vec4 colDiffuse;
 out vec4 finalColor;
 
 uniform float time;
-uniform float speed;
+uniform float noiseSpeed;
+uniform float waveSpeed;
 uniform sampler2D noiseTexture;
 
 vec4 lerp(vec4 start, vec4 end, float t) {
@@ -52,7 +53,8 @@ float uv_y_prime(vec2 uv) {
 }
 
 void main() {
-    float timeSpeed = time * speed;
+    float timeNoiseSpeed = time * noiseSpeed;
+    float timeWaveSpeed = time * waveSpeed;
 
     //finalColor = texture(noiseTexture, fragTexCoord);
     //finalColor = texture(texture0, fragTexCoord + vec2(timeSpeed, 0));
@@ -67,18 +69,18 @@ void main() {
     vec4 c2 = vec4(1.0, 0.0, 0.0, 1.0);
     vec4 gradColor = lerp(c1, c2, grad);
     
-    vec4 text_static = texture(texture0, vec2(uv.x, uv_y_prime(uv)));
-    vec4 tex = texture(texture0, vec2(uv.x + timeSpeed, uv_y_prime(uv)));
-    vec4 noise_tex = vec4(texture(noiseTexture, uv + vec2(timeSpeed, 0)).xxx, 1.0);
+    vec4 wave_tex_static = texture(texture0, vec2(uv.x, uv_y_prime(uv)));
+    vec4 wave_tex = texture(texture0, vec2(uv.x + timeWaveSpeed, uv_y_prime(uv)));
+    vec4 noise_tex = vec4(texture(noiseTexture, uv + vec2(timeNoiseSpeed, 0)).xxx, 1.0);
     
     // vec4 tex_color = lerp(vec4(0.0, 0.0, 0.0, 1.0), tex, tex.w);
-    vec4 tex_color = tex;
+    vec4 wave_tex_color = wave_tex;
     float noise = noise_tex.x;
     
     float noise_fade = 1.5 * easeOutCubic(grad) - noise;
 
     // Output to screen
-    finalColor = tex_color * (gradColor * noise_fade * 20.0);
+    finalColor = wave_tex_color * (gradColor * noise_fade * 20.0);
 
     // -- Tests
 

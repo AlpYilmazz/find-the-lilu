@@ -167,12 +167,13 @@ void player_draw(Player* player) {
 typedef struct {
     Shader shader;
     float time;
-    float speed;
+    float noise_speed;
+    float wave_speed;
     Texture noise_texture;
     Texture wave_texture;
 } FireTrailMaterial;
 
-void fire_trail_material_set_shader(FireTrailMaterial* ftm) {
+void fire_trail_material_set_shader_values(FireTrailMaterial* ftm) {
     SetShaderValue(
         ftm->shader,
         GetShaderLocation(ftm->shader, "time"),
@@ -181,8 +182,14 @@ void fire_trail_material_set_shader(FireTrailMaterial* ftm) {
     );
     SetShaderValue(
         ftm->shader,
-        GetShaderLocation(ftm->shader, "speed"),
-        &ftm->speed,
+        GetShaderLocation(ftm->shader, "noiseSpeed"),
+        &ftm->noise_speed,
+        SHADER_UNIFORM_FLOAT
+    );
+    SetShaderValue(
+        ftm->shader,
+        GetShaderLocation(ftm->shader, "waveSpeed"),
+        &ftm->wave_speed,
         SHADER_UNIFORM_FLOAT
     );
     SetShaderValueTexture(
@@ -192,12 +199,13 @@ void fire_trail_material_set_shader(FireTrailMaterial* ftm) {
     );
 }
 
-void fire_trail_material_draw(FireTrailMaterial* ftm) {
+void fire_trail_material_draw(FireTrailMaterial* ftm, RenderTexture2D target) {
     BeginShaderMode(ftm->shader);
+        fire_trail_material_set_shader_values(ftm);
         DrawTexturePro(
             ftm->wave_texture,
             (Rectangle) { 0, 0, ftm->wave_texture.width, ftm->wave_texture.height },
-            (Rectangle) {0, 0, 512, 512},
+            (Rectangle) {0, 0, target.texture.width, target.texture.height},
             (Vector2) {0, 0},
             0,
             WHITE
@@ -221,7 +229,13 @@ void fire_trail_process_input(FireTrail* fire_trail) {
     }
 }
 
-void fire_trail_update(FireTrail* fire_trail, float delta_time, Camera2D camera, Player* player) {
+void fire_trail_update(FireTrail* fire_trail, float delta_time) {
+    if (!fire_trail->paused) {
+        fire_trail->material.time += delta_time;
+    }
+}
+
+void fire_trail_update_player_relative(FireTrail* fire_trail, Camera2D camera, Player* player) {
     fire_trail->base = Vector2Add(
         player->position,
         Vector2Scale(player->aim_direction, 128.0 - 10.0 /* hearth texture length */)
@@ -229,10 +243,6 @@ void fire_trail_update(FireTrail* fire_trail, float delta_time, Camera2D camera,
 
     Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), camera);
     fire_trail->direction = Vector2Normalize(Vector2Subtract(mouse, fire_trail->base));
-
-    if (!fire_trail->paused) {
-        fire_trail->material.time += delta_time;
-    }
 }
 
 void fire_trail_draw(FireTrail* fire_trail) {
@@ -319,22 +329,19 @@ int main() {
     Texture simple_noise_texture = LoadTexture("assets\\simple-noise.png");
     Texture fire_trail_wave_texture = LoadTexture("assets\\wave.png");
 
-    RenderTexture2D fire_trail_target_texture = LoadRenderTexture(512, 512);
+    // RenderTexture2D fire_trail_target_texture = LoadRenderTexture(512, 512);
     Shader fire_trail_shader = LoadShader(0, "shaders\\fire_trail.fs"); // NOTE: use default vs
-
-    int fts_time_loc =  GetShaderLocation(fire_trail_shader, "time");
-    int fts_speed_loc =  GetShaderLocation(fire_trail_shader, "speed");
-    int fts_noise_texture_loc =  GetShaderLocation(fire_trail_shader, "noiseTexture");
 
     FireTrail fire_trail = {
         .material = (FireTrailMaterial) {
             .shader = fire_trail_shader,
             .time = 0,
-            .speed = 0.6,
+            .noise_speed = 1.0,
+            .wave_speed = 0.6,
             .noise_texture = simple_noise_texture,
             .wave_texture = fire_trail_wave_texture,
         },
-        .fire_trail_target_texture = fire_trail_target_texture,
+        .fire_trail_target_texture = LoadRenderTexture(512, 512),
         .paused = false,
         .base = {0, 0},
         .direction = {1, 0},
@@ -342,7 +349,22 @@ int main() {
         .girth = 50,
     };
 
-    float speed = 0.6;
+    FireTrail fire_trail_big_left = {
+        .material = (FireTrailMaterial) {
+            .shader = fire_trail_shader,
+            .time = 0,
+            .noise_speed = 0.8,
+            .wave_speed = 0.6,
+            .noise_texture = simple_noise_texture,
+            .wave_texture = fire_trail_wave_texture,
+        },
+        .fire_trail_target_texture = LoadRenderTexture(512, 512),
+        .paused = false,
+        .base = {-500, 500},
+        .direction = {0, -1},
+        .length = 1000,
+        .girth = 500,
+    };
 
     while (!WindowShouldClose()) {
         float time = (float) GetTime();
@@ -365,40 +387,27 @@ int main() {
         // INPUT
         player_process_input(&player);
         fire_trail_process_input(&fire_trail);
-
-        if (IsKeyPressed(KEY_SPACE)) {
-            speed = (speed == 0.0) ? 0.6 : 0.0;
-        }
+        fire_trail_process_input(&fire_trail_big_left);
 
         // UPDATE
         tick_sprite_sheet_animation_timer(&circle_vfx_anim, delta_time);
         player_update(&player, camera, delta_time);
-        fire_trail_update(&fire_trail, delta_time, camera, &player);
+        fire_trail_update(&fire_trail, delta_time);
+        fire_trail_update_player_relative(&fire_trail, camera, &player);
+        fire_trail_update(&fire_trail_big_left, delta_time);
         camera.target = player.position;
 
         // DRAW
-        BeginTextureMode(fire_trail_target_texture);
+        //fire_trail_material_set_shader_values(&fire_trail.material);
+        BeginTextureMode(fire_trail.fire_trail_target_texture);
             ClearBackground(BLANK);
-            BeginShaderMode(fire_trail_shader);
+            fire_trail_material_draw(&fire_trail.material, fire_trail.fire_trail_target_texture);
+        EndTextureMode();
 
-                SetShaderValue(fire_trail_shader, fts_time_loc, &time, SHADER_UNIFORM_FLOAT);
-                SetShaderValue(fire_trail_shader, fts_speed_loc, &speed, SHADER_UNIFORM_FLOAT);
-                SetShaderValueTexture(fire_trail_shader, fts_noise_texture_loc, simple_noise_texture);
-
-                //DrawRectangle(0, 0, 512, 512, BLUE);
-                DrawTexturePro(
-                    fire_trail_wave_texture,
-                    (Rectangle) { 0, 0, fire_trail_wave_texture.width, fire_trail_wave_texture.height },
-                    (Rectangle) {0, 0, 512, 512},
-                    (Vector2) {0, 0},
-                    0,
-                    WHITE
-                );
-
-            EndShaderMode();
-
-            fire_trail_material_draw(&fire_trail.material);
-
+        //fire_trail_material_set_shader_values(&fire_trail_big_left.material);
+        BeginTextureMode(fire_trail_big_left.fire_trail_target_texture);
+            ClearBackground(BLANK);
+            fire_trail_material_draw(&fire_trail_big_left.material, fire_trail_big_left.fire_trail_target_texture);
         EndTextureMode();
 
         BeginDrawing();
@@ -416,14 +425,15 @@ int main() {
                 //     (Vector2){ -256, -256 },
                 //     WHITE
                 // );
-                DrawTexturePro(
-                    fire_trail_target_texture.texture,
-                    (Rectangle) { 0, 0, fire_trail_target_texture.texture.width, fire_trail_target_texture.texture.height },
-                    (Rectangle) {-500, -250, 1000, 500},
-                    (Vector2) {fire_trail_target_texture.texture.width/2.0, fire_trail_target_texture.texture.height/2.0},
-                    90,
-                    WHITE
-                );
+                // DrawTexturePro(
+                //     fire_trail_target_texture.texture,
+                //     (Rectangle) { 0, 0, fire_trail_target_texture.texture.width, fire_trail_target_texture.texture.height },
+                //     (Rectangle) {-500, -250, 1000, 500},
+                //     (Vector2) {fire_trail_target_texture.texture.width/2.0, fire_trail_target_texture.texture.height/2.0},
+                //     90,
+                //     WHITE
+                // );
+                fire_trail_draw(&fire_trail_big_left);
 
                 DrawTexturePro(
                     heart_texture,
