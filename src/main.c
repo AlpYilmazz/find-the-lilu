@@ -7,15 +7,22 @@
 #include "raymath.h"
 #include "rlgl.h"
 
+#include "asset.h"
+#include "animation.h"
+
 #define LAZY_INIT 0
 
 struct {
     unsigned int SCREEN_WIDTH;
     unsigned int SCREEN_HEIGHT;
-} GLOBAL = {
-    .SCREEN_WIDTH = LAZY_INIT,
-    .SCREEN_HEIGHT = LAZY_INIT,
-};
+    TextureAssets TEXTURE_ASSETS;
+} GLOBAL;
+// = {
+//     LAZY_INIT
+//     // .SCREEN_WIDTH = LAZY_INIT,
+//     // .SCREEN_HEIGHT = LAZY_INIT,
+//     // .TEXTURE_ASSETS = {LAZY_INIT},
+// };
 
 void global_set_screen_size(unsigned int width, unsigned int height) {
     GLOBAL.SCREEN_WIDTH = width;
@@ -145,16 +152,16 @@ void player_draw(Player* player) {
     );
     DrawCircleV(player->position, player_radius, WHITE);
 
-    arrow_draw(
-        (Arrow) {
-            .head_radius = 30,
-            .base = player->position,
-            .direction = player->aim_direction,
-            .length = player_radius + 10*10,
-        },
-        5,
-        GREEN
-    );
+    // arrow_draw(
+    //     (Arrow) {
+    //         .head_radius = 30,
+    //         .base = player->position,
+    //         .direction = player->aim_direction,
+    //         .length = player_radius + 10*10,
+    //     },
+    //     5,
+    //     GREEN
+    // );
 }
 
 typedef struct {
@@ -217,7 +224,7 @@ void fire_trail_process_input(FireTrail* fire_trail) {
 void fire_trail_update(FireTrail* fire_trail, float delta_time, Camera2D camera, Player* player) {
     fire_trail->base = Vector2Add(
         player->position,
-        Vector2Scale(player->aim_direction, 50 + 10*10 + fire_trail->girth/8.0)
+        Vector2Scale(player->aim_direction, 128.0 - 10.0 /* hearth texture length */)
     );
 
     Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), camera);
@@ -245,7 +252,7 @@ void fire_trail_draw(FireTrail* fire_trail) {
         RAD2DEG * Vector2Angle((Vector2) {1, 0}, fire_trail->direction),
         WHITE
     );
-    printf("Angle: %d\n", (int)(RAD2DEG * Vector2Angle((Vector2) {1, 0}, fire_trail->direction)));
+    // printf("Angle: %d\n", (int)(RAD2DEG * Vector2Angle((Vector2) {1, 0}, fire_trail->direction)));
 }
 
 typedef struct {
@@ -254,11 +261,13 @@ typedef struct {
 
 int main() {
 
+    InitWindow(GLOBAL.SCREEN_WIDTH, GLOBAL.SCREEN_HEIGHT, "Find The LILU");
+
     {
         global_set_screen_size(1920, 1080);
+        GLOBAL.TEXTURE_ASSETS = new_texture_assets();
     }
 
-    InitWindow(GLOBAL.SCREEN_WIDTH, GLOBAL.SCREEN_HEIGHT, "Find The LILU");
     SetTargetFPS(60);
     SetConfigFlags(FLAG_MSAA_4X_HINT);
 
@@ -280,6 +289,32 @@ int main() {
     };
 
     Player player = player_create_default();
+
+    TextureHandle circle_vfx_ss_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
+    Image circle_vfx_ss = LoadImage("assets\\circle-vfx.png");
+    texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, circle_vfx_ss_texture_handle, circle_vfx_ss);
+
+    int anim_frame_count = 8;
+    float* checkpoints = malloc(anim_frame_count * sizeof(float));
+    for (int i = 0; i < anim_frame_count; i++) {
+        checkpoints[i] = 0.15 * (i+1);
+    }
+    SequenceTimer stimer = new_sequence_timer(checkpoints, anim_frame_count, Timer_Repeating);
+    SpriteSheetAnimation circle_vfx_anim = new_sprite_sheet_animation(
+        stimer,
+        circle_vfx_ss_texture_handle,
+        (Vector2) {64, 64},
+        1, anim_frame_count, anim_frame_count
+    );
+
+    Texture circle_texture = LoadTexture("assets\\circle.png");
+    Texture circle_effect_texture = LoadTexture("assets\\circle-effect.png");
+    Texture circle_just_effect_texture = LoadTexture("assets\\circle-just-effect.png");
+    SetTextureFilter(circle_texture, TEXTURE_FILTER_POINT);
+    SetTextureFilter(circle_effect_texture, TEXTURE_FILTER_POINT);
+    SetTextureFilter(circle_just_effect_texture, TEXTURE_FILTER_POINT);
+
+    Texture heart_texture = LoadTexture("assets\\heart.png");
 
     Texture simple_noise_texture = LoadTexture("assets\\simple-noise.png");
     Texture fire_trail_wave_texture = LoadTexture("assets\\wave.png");
@@ -336,7 +371,8 @@ int main() {
         }
 
         // UPDATE
-        //player_update(&player, camera, delta_time);
+        tick_sprite_sheet_animation_timer(&circle_vfx_anim, delta_time);
+        player_update(&player, camera, delta_time);
         fire_trail_update(&fire_trail, delta_time, camera, &player);
         camera.target = player.position;
 
@@ -373,8 +409,6 @@ int main() {
 
                 player_draw(&player);
 
-                fire_trail_draw(&fire_trail);
-
                 // DrawTexture(fire_trail_target_texture.texture, -256, -256, WHITE);
                 // DrawTextureRec(
                 //     fire_trail_target_texture.texture,
@@ -391,11 +425,91 @@ int main() {
                     WHITE
                 );
 
-                DrawEllipse(
-                    fire_trail.base.x - fire_trail.girth/16.0, fire_trail.base.y,
-                    fire_trail.girth/8.0, fire_trail.girth/2.0,
-                    (Color) { 255, 36, 0, 255 }
-                ); // FIREBALL
+                DrawTexturePro(
+                    heart_texture,
+                    (Rectangle) { 0, 0, heart_texture.width, heart_texture.height },
+                    (Rectangle) {
+                        .x = player.position.x,
+                        .y = player.position.y, //  - fire_trail->girth/2.0 + fire_trail->girth/2.0,
+                        .width = heart_texture.width,
+                        .height = heart_texture.height,
+                    },
+                    (Vector2) { 0, heart_texture.height/2.0 },
+                    RAD2DEG * Vector2Angle((Vector2) {1, 0}, player.aim_direction),
+                    WHITE
+                );
+
+                float ellipse_radius_w = fire_trail.girth/3.0;// /8.0;
+                float ellipse_radius_h = fire_trail.girth * 1.5;
+
+                // DrawEllipse(
+                //     fire_trail.base.x - fire_trail.girth/16.0, fire_trail.base.y,
+                //     ellipse_radius_w, ellipse_radius_h,
+                //     (Color) { 255, 36, 0, 255 }
+                // ); // FIREBALL
+
+                Texture ellipse_texture = circle_texture;
+                DrawTexturePro(
+                    ellipse_texture,
+                    (Rectangle) { 0, 0, ellipse_texture.width, ellipse_texture.height },
+                    (Rectangle) {
+                        .x = fire_trail.base.x, // - ellipse_radius_w/2.0 + ellipse_radius_w/2.0,
+                        .y = fire_trail.base.y, // - ellipse_radius_h/2.0 + ellipse_radius_h/2.0,
+                        .width = ellipse_radius_w,
+                        .height = ellipse_radius_h
+                    },
+                    (Vector2) {ellipse_radius_w/2.0, ellipse_radius_h/2.0},
+                    RAD2DEG * Vector2Angle((Vector2) {1, 0}, fire_trail.direction),
+                    WHITE
+                );
+
+                float effect_radius_w = 2.0 * ellipse_radius_w;
+                float effect_radius_h = 2.0 * ellipse_radius_h;
+                float rotation = RAD2DEG * Vector2Angle((Vector2) {1, 0}, fire_trail.direction);
+                // DrawTexturePro(
+                //     circle_just_effect_texture,
+                //     (Rectangle) { 0, 0, circle_just_effect_texture.width, circle_just_effect_texture.height },
+                //     (Rectangle) {
+                //         .x = fire_trail.base.x, // - ellipse_radius_w/2.0 + ellipse_radius_w/2.0,
+                //         .y = fire_trail.base.y, // - ellipse_radius_h/2.0 + ellipse_radius_h/2.0,
+                //         .width = effect_radius_w,
+                //         .height = effect_radius_h
+                //     },
+                //     (Vector2) {effect_radius_w/2.0, effect_radius_h/2.0},
+                //     rotation,
+                //     WHITE
+                // );
+                // DrawTexturePro(
+                //     circle_just_effect_texture,
+                //     (Rectangle) { 0, 0, circle_just_effect_texture.width, circle_just_effect_texture.height },
+                //     (Rectangle) {
+                //         .x = fire_trail.base.x - cosf(rotation) * (5.0 * sinf(time*4.0)), // - ellipse_radius_w/2.0 + ellipse_radius_w/2.0,
+                //         .y = fire_trail.base.y + sinf(rotation) * (5.0 * sinf(time*4.0)), // - ellipse_radius_h/2.0 + ellipse_radius_h/2.0,
+                //         .width = effect_radius_w,
+                //         .height = effect_radius_h
+                //     },
+                //     (Vector2) {effect_radius_w/2.0, effect_radius_h/2.0},
+                //     rotation,
+                //     WHITE
+                // );
+
+                SpriteSheetSprite circle_vfx_frame = sprite_sheet_get_current_sprite(&circle_vfx_anim);
+                Texture* circle_vfx_texture = texture_assets_get_texture_unchecked(&GLOBAL.TEXTURE_ASSETS, circle_vfx_frame.texture_handle);
+                DrawTexturePro(
+                    *circle_vfx_texture,
+                    circle_vfx_frame.sprite,
+                    (Rectangle) {
+                        .x = fire_trail.base.x, // - ellipse_radius_w/2.0 + ellipse_radius_w/2.0,
+                        .y = fire_trail.base.y, // - ellipse_radius_h/2.0 + ellipse_radius_h/2.0,
+                        .width = effect_radius_w,
+                        .height = effect_radius_h
+                    },
+                    (Vector2) {effect_radius_w/2.0, effect_radius_h/2.0},
+                    rotation,
+                    WHITE
+                );
+
+                fire_trail_draw(&fire_trail);
 
             EndMode2D();
 

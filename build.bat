@@ -14,6 +14,8 @@ set TARGET_DIR=target
 
 set OUTPUT=find-the-lilu.exe
 set COMPILE=^
+    %SRC_DIR%/asset.c^
+    %SRC_DIR%/animation.c^
     %SRC_DIR%/main.c
 
 mkdir %TARGET_DIR%
