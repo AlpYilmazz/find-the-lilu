@@ -25,6 +25,11 @@ TextureResponse valid_texture_response(Texture* texture) {
     return (TextureResponse) { true, texture };
 }
 
+// TODO: semantically separate image and texture more
+//       UnloadImage
+//       PutTexture
+//       UnloadTexture
+
 TextureAssets new_texture_assets() {
     TextureAssets texture_assets = {0};
 
@@ -93,7 +98,7 @@ Texture* texture_assets_get_texture_unchecked(TextureAssets* assets, TextureHand
     return &assets->textures[handle.id];
 }
 
-void texture_assets_unload_texture(TextureAssets* assets, TextureHandle handle) {
+void texture_assets_unload_image_and_texture(TextureAssets* assets, TextureHandle handle) {
     assets->slots[handle.id] = false;
     assets->texture_ready[handle.id] = false;
 

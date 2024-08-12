@@ -1,5 +1,4 @@
-#ifndef SNAKEGAME_ANIMATION
-#define SNAKEGAME_ANIMATION
+#pragma once
 
 #include "asset.h"
 
@@ -81,5 +80,3 @@ typedef struct {
 } SpriteSheetSprite;
 
 SpriteSheetSprite sprite_sheet_get_current_sprite(SpriteSheetAnimation* anim);
-
-#endif

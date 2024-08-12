@@ -1,5 +1,4 @@
-#ifndef SNAKEGAME_ASSET
-#define SNAKEGAME_ASSET
+#pragma once
 
 #include <stdbool.h>
 
@@ -39,5 +38,3 @@ TextureResponse texture_assets_get_texture(TextureAssets* assets, TextureHandle 
 Texture* texture_assets_get_texture_or_default(TextureAssets* assets, TextureHandle handle);
 Texture* texture_assets_get_texture_unchecked(TextureAssets* assets, TextureHandle handle);
 void texture_assets_unload_texture(TextureAssets* assets, TextureHandle handle);
-
-#endif
