@@ -125,7 +125,7 @@ typedef struct {
 } FireTrail;
 
 void fire_trail_process_input(FireTrail* fire_trail) {
-    if (IsKeyPressed(KEY_SPACE)) {
+    if (IsKeyPressed(KEY_T)) {
         fire_trail->paused ^= 1;
     }
 }
@@ -168,25 +168,34 @@ typedef struct {
     Texture heart_texture;
     Texture portal_texture;
     SpriteSheetAnimation portal_vfx_anim;
+    //
+    bool active;
 } PlayerSkill_ShowWay;
 
-void player_skill_show_way_process_input(PlayerSkill_ShowWay* skill) {
+void player_skill_show_way_process_input(PlayerSkill_ShowWay* skill, bool skill_can_activate) {
     fire_trail_process_input(&skill->fire_trail);
+    skill->active = skill_can_activate && IsKeyDown(BINDING_KEY_PLAYER_SHOW_WAY);
 }
 
 void player_skill_show_way_update(PlayerSkill_ShowWay* skill, float delta_time) {
+    if (!skill->active) return;
+
     fire_trail_update(&skill->fire_trail, delta_time);
     tick_sprite_sheet_animation_timer(&skill->portal_vfx_anim, delta_time);
 }
 
 void player_skill_show_way_predraw(PlayerSkill_ShowWay* skill) {
+    if (!skill->active) return;
+    
     BeginTextureMode(skill->fire_trail.fire_trail_target_texture);
         ClearBackground(BLANK);
         fire_trail_material_draw(&skill->fire_trail.material, skill->fire_trail.fire_trail_target_texture);
     EndTextureMode();
 }
 
-void player_skill_show_way_draw(PlayerSkill_ShowWay* skill, Vector2 position, Vector2 direction) {            
+void player_skill_show_way_draw(PlayerSkill_ShowWay* skill, Vector2 position, Vector2 direction) {  
+    if (!skill->active) return;
+              
     // heart
     Texture heart_texture = skill->heart_texture;
     DrawTexturePro(
@@ -257,6 +266,21 @@ void player_skill_show_way_draw(PlayerSkill_ShowWay* skill, Vector2 position, Ve
 }
 
 typedef struct {
+    Texture motorcycle_texture;
+    Texture motorcycle_with_gun_texture;
+    Texture lower_body_texture;
+    Texture left_arm_with_gun_texture;
+    Texture upper_body_texture;
+    Texture upper_body_full_texture;
+    Texture hair_idle_texture;
+    // Image hair_move_image;
+    SpriteSheetAnimation hair_move_anim;
+} PlayerGraphics;
+
+typedef struct {
+    PlayerGraphics graphics;
+    PlayerSkill_ShowWay player_skill_show_way;
+    //
     Vector2 position;
     Vector2 direction;
     float speed;
@@ -268,13 +292,14 @@ typedef struct {
     //
     Vector2 aim_direction;
     //
+    bool in_shooting_stance;
     bool reverse_active;
-    //
-    PlayerSkill_ShowWay player_skill_show_way;
 } Player;
 
 Player player_create_default() {
     return (Player) {
+        .graphics = {0},
+        .player_skill_show_way = {0},
         .position = 0,
         .direction = {0, -1},
         .speed = 100,
@@ -283,12 +308,13 @@ Player player_create_default() {
         .rotation_direction = 0,
         .rotation_speed_deg = 100,
         .aim_direction = {1, 0},
+        .in_shooting_stance = false,
         .reverse_active = false,
-        .player_skill_show_way = {0},
     };
 }
 
 void player_process_input(Player* player) {
+    player->in_shooting_stance = IsMouseButtonDown(BINDING_MOUSE_BUTTON_PLAYER_SHOOTING_STANCE);
     player->reverse_active = IsKeyDown(BINDING_KEY_PLAYER_REVERSE);
 
     if (IsKeyDown(BINDING_KEY_PLAYER_UP) && IsKeyDown(BINDING_KEY_PLAYER_DOWN)) {
@@ -317,7 +343,8 @@ void player_process_input(Player* player) {
         player->rotation_direction = 0;
     }
 
-    player_skill_show_way_process_input(&player->player_skill_show_way);
+    bool skill_can_activate = (player->speed == 0.0);
+    player_skill_show_way_process_input(&player->player_skill_show_way, skill_can_activate);
 }
 
 void player_update(Player* player, Camera2D camera, float delta_time) {
@@ -351,6 +378,7 @@ void player_update(Player* player, Camera2D camera, float delta_time) {
 
     player->aim_direction = Vector2Normalize(Vector2Subtract(mouse, player->position));
     
+    tick_sprite_sheet_animation_timer(&player->graphics.hair_move_anim, delta_time);
     player_skill_show_way_update(&player->player_skill_show_way, delta_time);
 }
 
@@ -367,8 +395,120 @@ void player_draw(Player* player) {
         5,
         RED
     );
-    DrawCircleV(player->position, player_radius, WHITE);
+    // DrawCircleV(player->position, player_radius, WHITE);
 
+    // typedef struct {
+    //     Texture motorcycle_texture;
+    //     Texture motorcycle_with_gun_texture;
+    //     Texture lower_body_texture;
+    //     Texture left_arm_with_gun_texture;
+    //     Texture upper_body_texture;
+    //     Texture upper_body_full_texture;
+    //     Texture hair_idle_texture;
+    //     // Image hair_move_image;
+    //     SpriteSheetAnimation hair_move_anim;
+    // } PlayerGraphics;
+
+    bool in_shooting_stance = player->in_shooting_stance;
+    PlayerGraphics* graphics = &player->graphics;
+    Rectangle source = {
+        0, 0,
+        graphics->motorcycle_texture.width, graphics->motorcycle_texture.height,
+    };
+    Rectangle destination = {
+        .x = player->position.x, //  - source.width/2.0,
+        .y = player->position.y, // - source.height/2.0,
+        .width = source.width,
+        .height = source.height,
+    };
+    Vector2 origin = {source.width/2.0, source.height/2.0};
+    float rotation = 90 + (RAD2DEG * Vector2Angle((Vector2) {1, 0}, player->direction));
+    Color tint = WHITE;
+
+    // player ground
+    // DrawRectanglePro(
+    //     destination,
+    //     origin,
+    //     rotation,
+    //     tint
+    // );
+
+    // motorcycle
+    DrawTexturePro(
+        in_shooting_stance ? graphics->motorcycle_texture : graphics->motorcycle_with_gun_texture,
+        source,
+        destination,
+        origin,
+        rotation,
+        tint
+    );
+
+    // lower body
+    DrawTexturePro(
+        graphics->lower_body_texture,
+        source,
+        destination,
+        origin,
+        rotation,
+        tint
+    );
+
+    // left arm with gun
+    if (in_shooting_stance) {
+        Texture left_arm_with_gun_texture = graphics->left_arm_with_gun_texture;
+        DrawTexturePro(
+            left_arm_with_gun_texture,
+            (Rectangle) { 0, 0, left_arm_with_gun_texture.width, left_arm_with_gun_texture.height },
+            (Rectangle) {
+                .x = player->position.x,
+                .y = player->position.y,
+                .width = left_arm_with_gun_texture.width,
+                .height = left_arm_with_gun_texture.height,
+            },
+            (Vector2) { 0, left_arm_with_gun_texture.height/2.0 },
+            RAD2DEG * Vector2Angle((Vector2) {1, 0}, player->aim_direction),
+            tint
+        );
+    }
+
+    // upper body
+    DrawTexturePro(
+        in_shooting_stance ? graphics->upper_body_texture : graphics->upper_body_full_texture,
+        source,
+        destination,
+        origin,
+        rotation,
+        tint
+    );
+
+    // hair
+    const float hair_move_speed_threshold = 100.0;
+    if (player->speed >= hair_move_speed_threshold) {
+        // move
+        SpriteSheetSprite hair_anim_frame = sprite_sheet_get_current_sprite(&graphics->hair_move_anim);
+        Texture* hair_anim_frame_texture = texture_assets_get_texture_unchecked(&GLOBAL.TEXTURE_ASSETS, hair_anim_frame.texture_handle);
+        DrawTexturePro(
+            *hair_anim_frame_texture,
+            hair_anim_frame.sprite,
+            destination,
+            origin,
+            rotation,
+            tint
+        );
+    }
+    else {
+        // idle
+        DrawTexturePro(
+            graphics->hair_idle_texture,
+            source,
+            destination,
+            origin,
+            rotation,
+            tint
+        );
+    }
+
+    // --
     Vector2 skill_direction = Vector2Normalize(Vector2Subtract(Vector2Zero(), player->position));
     player_skill_show_way_draw(&player->player_skill_show_way, player->position, skill_direction);
 
@@ -468,7 +608,48 @@ int main() {
         .heart_texture = heart_texture,
         .portal_texture = circle_texture,
         .portal_vfx_anim = circle_vfx_anim,
+        .active = false,
     };
+    {
+        Texture motorcycle_texture = LoadTexture("assets\\player\\motorcycle.png");
+        Texture motorcycle_with_gun_texture = LoadTexture("assets\\player\\motorcycle-with-gun.png");
+        Texture lower_body_texture = LoadTexture("assets\\player\\lower-body.png");
+        Texture left_arm_with_gun_texture = LoadTexture("assets\\player\\left-arm-with-gun.png");
+        Texture upper_body_texture = LoadTexture("assets\\player\\upper-body.png");
+        Texture upper_body_full_texture = LoadTexture("assets\\player\\upper-body-full.png");
+        Texture hair_idle_texture = LoadTexture("assets\\player\\hair-idle.png");
+        Image hair_move_image = LoadImage("assets\\player\\hair-move.png");
+
+        TextureHandle hair_move_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
+        texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, hair_move_texture_handle, hair_move_image);
+
+        SpriteSheetAnimation hair_move_anim = {0};
+        {
+            int anim_frame_count = 5;
+            float* checkpoints = malloc(anim_frame_count * sizeof(float));
+            for (int i = 0; i < anim_frame_count; i++) {
+                checkpoints[i] = 0.1 * (i+1);
+            }
+            SequenceTimer stimer = new_sequence_timer(checkpoints, anim_frame_count, Timer_Repeating);
+            hair_move_anim = new_sprite_sheet_animation(
+                stimer,
+                hair_move_texture_handle,
+                (Vector2) {64, 128},
+                1, anim_frame_count, anim_frame_count
+            );
+        }
+
+        player.graphics = (PlayerGraphics) {
+            .motorcycle_texture = motorcycle_texture,
+            .motorcycle_with_gun_texture = motorcycle_with_gun_texture,
+            .lower_body_texture = lower_body_texture,
+            .left_arm_with_gun_texture = left_arm_with_gun_texture,
+            .upper_body_texture = upper_body_texture,
+            .upper_body_full_texture = upper_body_full_texture,
+            .hair_idle_texture = hair_idle_texture,
+            .hair_move_anim = hair_move_anim,
+        };
+    }
 
     FireTrail fire_trail_big_left = {
         .material = (FireTrailMaterial) {
@@ -532,8 +713,25 @@ int main() {
 
         // -- DRAW START --
         BeginDrawing();
-            ClearBackground(BLACK);
+            ClearBackground(LIGHTGRAY);
+            
             BeginMode2D(camera);
+
+                const int step = 64;
+                const int count_x = (GLOBAL.SCREEN_WIDTH / step) - 1;
+                const int count_y = (GLOBAL.SCREEN_HEIGHT / step) - 1;
+                for (int i = 0; i < count_x; i++) {
+                    int x = step * (i+1);
+                    x -= camera.offset.x;
+                    int yStart = -camera.offset.y;
+                    DrawLine(x, yStart, x, yStart + 2.0*camera.offset.y, BLACK);
+                }
+                for (int i = 0; i < count_y; i++) {
+                    int y = step * (i+1);
+                    y -= camera.offset.y;
+                    int xStart = -camera.offset.x;
+                    DrawLine(xStart, y, xStart + 2.0*camera.offset.x, y, BLACK);
+                }
 
                 // Origin
                 DrawCircle(0, 0, 5, RED);
