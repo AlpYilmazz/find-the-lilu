@@ -29,6 +29,7 @@ typedef struct {
 } SequenceTimer;
 
 SequenceTimer new_sequence_timer(float* checkpoints, int count, TimerMode mode);
+SequenceTimer new_sequence_timer_evenly_spaced(float time_between, int count, TimerMode mode);
 void tick_sequence_timer(SequenceTimer* stimer, float delta_time_seconds);
 bool sequence_timer_has_pulsed(SequenceTimer* stimer);
 bool sequence_timer_is_finished(SequenceTimer* stimer);

@@ -25,6 +25,8 @@ TextureResponse valid_texture_response(Texture* texture) {
     return (TextureResponse) { true, texture };
 }
 
+// TextureAssets
+
 // TODO: semantically separate image and texture more
 //       UnloadImage
 //       PutTexture

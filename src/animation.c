@@ -1,10 +1,12 @@
-// #include <windows.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
 
 #include "asset.h"
 
 #include "animation.h"
+
+// Timer
 
 Timer new_timer(float setup_secs, TimerMode mode) {
     return (Timer) {
@@ -48,7 +50,26 @@ bool timer_is_finished(Timer* timer) {
     }
 }
 
+// SequenceTimer
+
 SequenceTimer new_sequence_timer(float* checkpoints, int count, TimerMode mode) {
+    return (SequenceTimer) {
+        .mode = mode,
+        .checkpoint_count = count,
+        .index = 0,
+        .checkpoints = checkpoints,
+        .time_elapsed = 0.0,
+        .pulsed = false,
+        .finished = false,
+    };
+}
+
+// allocates
+SequenceTimer new_sequence_timer_evenly_spaced(float time_between, int count, TimerMode mode) {
+    float* checkpoints = malloc(count * sizeof(float));
+    for (int i = 0; i < count; i++) {
+        checkpoints[i] = time_between * (i+1);
+    }
     return (SequenceTimer) {
         .mode = mode,
         .checkpoint_count = count,
@@ -118,6 +139,8 @@ bool sequence_timer_is_finished(SequenceTimer* stimer) {
     }
 }
 
+// SpriteAnimation
+
 SpriteAnimation new_sprite_animation(SequenceTimer timer, TextureHandle* textures, int texture_count) {
     return (SpriteAnimation) {
         .timer = timer,
@@ -141,6 +164,8 @@ TextureHandle get_current_texture(SpriteAnimation* anim) {
     if (anim->texture_count == 0) return primary_texture_handle();
     return anim->textures[anim->current_texture_ind];
 }
+
+// SpriteSheetAnimation
 
 SpriteSheetAnimation new_sprite_sheet_animation(
     SequenceTimer timer,
