@@ -1,6 +1,8 @@
 @echo off
 SETLOCAL
 
+set CC=gcc
+
 set COMPILER_FLAGS=
 
 set INCLUDE=-Ivendor/raylib-5.0/include
@@ -27,7 +29,7 @@ mkdir %TARGET_DIR%
 
 @echo on
 
-gcc %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% %LINK% -o ./%TARGET_DIR%/%OUTPUT%
+%CC% %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% %LINK% -o ./%TARGET_DIR%/%OUTPUT%
 
 @echo off
 
