@@ -37,6 +37,8 @@ typedef struct {
     PlayerGraphics graphics;
     PlayerSkill_ShowWay player_skill_show_way;
     //
+    Vector2 heart_origin_relative;
+    //
     Vector2 position;
     Vector2 direction;
     float speed;

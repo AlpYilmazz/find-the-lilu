@@ -120,6 +120,7 @@ Player player_create_default() {
     return (Player) {
         .graphics = { LAZY_INIT },
         .player_skill_show_way = { LAZY_INIT },
+        .heart_origin_relative = {28 - (64/2), 74 - (128/2)}, // @HARDCODED
         .position = 0,
         .direction = {0, -1},
         .speed = 100,
@@ -242,10 +243,12 @@ void player_update(Player* player, float delta_time) {
         SPEED_HARD_LIMIT
     );
 
-    player->direction = Vector2Rotate(
-        player->direction,
-        player->rotation_direction * DEG2RAD * player->rotation_speed_deg * delta_time
-    );
+    if (abs(player->speed) > EPSILON) {
+        player->direction = Vector2Rotate(
+            player->direction,
+            player->rotation_direction * DEG2RAD * player->rotation_speed_deg * delta_time
+        );
+    }
 
     player->position = Vector2Add(
         player->position,
@@ -384,8 +387,15 @@ void player_draw(GlobalResources* GLOBAL, Player* player) {
     }
 
     // --
+    Vector2 heart_origin_relative = Vector2Rotate(player->heart_origin_relative, DEG2RAD * rotation);
+    Vector2 heart_origin = Vector2Add(player->position, heart_origin_relative);
     Vector2 skill_direction = Vector2Normalize(Vector2Subtract(Vector2Zero(), player->position));
-    player_skill_show_way_draw(GLOBAL, &player->player_skill_show_way, player->position, skill_direction);
+    player_skill_show_way_draw(
+        GLOBAL,
+        &player->player_skill_show_way,
+        heart_origin,
+        skill_direction
+    );
 
     // arrow_draw(
     //     (Arrow) {
