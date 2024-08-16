@@ -56,12 +56,12 @@ void bullet_manager_spawn_bullet(BulletManager* bullet_manager, Bullet bullet) {
     #define GROWTH_FACTOR 2
 
     if (bullet_manager->capacity == 0) {
-        bullet_manager->capacity = INITIAL_CAPACITY * sizeof(Bullet);
-        bullet_manager->bullets = malloc(bullet_manager->capacity);
+        bullet_manager->capacity = INITIAL_CAPACITY;
+        bullet_manager->bullets = malloc(bullet_manager->capacity * sizeof(Bullet));
     }
     else if (bullet_manager->count == bullet_manager->capacity) {
         bullet_manager->capacity = GROWTH_FACTOR * bullet_manager->capacity;
-        bullet_manager->bullets = realloc(bullet_manager->bullets, bullet_manager->capacity);
+        bullet_manager->bullets = realloc(bullet_manager->bullets, bullet_manager->capacity * sizeof(Bullet));
     }
 
     bullet_manager->bullets[bullet_manager->count] = bullet;
@@ -85,7 +85,7 @@ void bullet_manager_update_bullets(BulletManager* bullet_manager, float delta_ti
 }
 
 int bullet_manager_check_bullet_hits(BulletManager* bullet_manager, CircleCollider enemy_collider) {
-    bool __debug_method_flag = IsKeyDown(KEY_F);
+    bool __debug_raymarching_method_flag = !IsKeyDown(KEY_F);
 
     int hit_count = 0;
 
@@ -105,7 +105,7 @@ int bullet_manager_check_bullet_hits(BulletManager* bullet_manager, CircleCollid
         bullet = &bullet_manager->bullets[i];
         bullet_hit = false;
 
-        if (!__debug_method_flag) {
+        if (!__debug_raymarching_method_flag) {
             bullet_collider = bullet->collider;
             bullet_hit = collide_circle_circle(bullet_collider, enemy_collider);
         }

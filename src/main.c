@@ -16,6 +16,7 @@
 #include "bullet.h"
 #include "firetrail.h"
 #include "player.h"
+#include "enemy.h"
 
 GlobalResources GLOBAL = { LAZY_INIT };
 
@@ -24,21 +25,80 @@ void global_set_screen_size(unsigned int width, unsigned int height) {
     GLOBAL.SCREEN_HEIGHT = height;
 }
 
-typedef struct {
-    CircleCollider collider;
-    int health;
-} Enemy;
+int rectangle_position_quarter_offset(int a) {
+    return (a < 0) ? -1 : 0;
+}
 
-void enemy_draw(Enemy* enemy) {
-    Color color = (enemy->health > 0) ? GREEN : RED;
-    DrawCircleV(enemy->collider.center, enemy->collider.radius, color);
+typedef struct {
+    Texture background_texture;
+} Background;
+
+void background_instance_draw(Background* bg, int pos_x, int pos_y) {
+    Texture tex = bg->background_texture;
+    DrawTexturePro(
+        tex,
+        (Rectangle) { 0, 0, tex.width, tex.height },
+        (Rectangle) {
+            .x = pos_x,
+            .y = pos_y,
+            .width = GLOBAL.SCREEN_WIDTH,
+            .height = GLOBAL.SCREEN_HEIGHT,
+        },
+        (Vector2) {0, 0},
+        0,
+        PURPLE
+    );
+}
+
+void background_draw(Background* background, Vector2 player_position) {
+    const int DIRECTIONS[9][2] = {
+        {-1, -1}, {0, -1}, {1, -1},
+        {-1,  0}, {0,  0}, {1,  0},
+        {-1,  1}, {0,  1}, {1,  1},
+    };
+
+    int grid_x = (int)GLOBAL.SCREEN_WIDTH * ((int)(player_position.x) / (int)GLOBAL.SCREEN_WIDTH);
+    int grid_y = (int)GLOBAL.SCREEN_HEIGHT * ((int)(player_position.y) / (int)GLOBAL.SCREEN_HEIGHT);
+    Vector2 player_grid = {
+        .x = grid_x + (rectangle_position_quarter_offset((int)(player_position.x)) * (int)GLOBAL.SCREEN_WIDTH),
+        .y = grid_y + (rectangle_position_quarter_offset((int)(player_position.y)) * (int)GLOBAL.SCREEN_HEIGHT),
+    };
+    AABBCollider player_camera_collider = {
+        .x_left = player_position.x - (float)GLOBAL.SCREEN_WIDTH/2.0,
+        .x_right = player_position.x + (float)GLOBAL.SCREEN_WIDTH/2.0,
+        .y_top = player_position.y - (float)GLOBAL.SCREEN_HEIGHT/2.0,
+        .y_bottom = player_position.y + (float)GLOBAL.SCREEN_HEIGHT/2.0,
+    };
+
+    // printf("-----\n");
+    // printf("Player pos: %d, %d\n", (int)player_position.x, (int)player_position.y);
+    // printf("Player grid: %d, %d ===>\n", grid_x, grid_y);
+    // printf("Player grid: %d, %d\n", (int)player_grid.x, (int)player_grid.y);
+    // printf("-----\n");
+    for (int i = 0; i < 9; i++) {
+        int x_offset = DIRECTIONS[i][0];
+        int y_offset = DIRECTIONS[i][1];
+        Vector2 grid = Vector2Add(player_grid, (Vector2) {x_offset * (int)GLOBAL.SCREEN_WIDTH, y_offset * (int)GLOBAL.SCREEN_HEIGHT});
+        AABBCollider grid_collider = {
+            .x_left = grid.x,
+            .x_right = grid.x + (float)GLOBAL.SCREEN_WIDTH,
+            .y_top = grid.y,
+            .y_bottom = grid.y + (float)GLOBAL.SCREEN_HEIGHT,
+        };
+
+        // printf("check grid: %d, %d\n", (int)grid.x, (int)grid.y);
+        if (collide_aabb_aabb(player_camera_collider, grid_collider)) {
+            // printf("Collides: %d\n", i);
+            background_instance_draw(background, grid.x, grid.y);
+        }
+    }
 }
 
 int main() {
 
     InitWindow(GLOBAL.SCREEN_WIDTH, GLOBAL.SCREEN_HEIGHT, "Find The LILU");
     SetTargetFPS(60);
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
 
     // Setup Global Variables
     {
@@ -51,6 +111,7 @@ int main() {
         texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, GLOBAL.NOISE_TEXTURE_HANDLE, noise_texture_image);
 
         GLOBAL.BULLET_MANAGER = new_bullet_manager();
+        // GLOBAL.ENEMY_SPAWNER = new_enemy_spawner();
     }
 
     // Setup Monitor
@@ -62,7 +123,7 @@ int main() {
     }
 
     Camera2D camera = {0};
-    camera.zoom = 1;
+    camera.zoom = 1.5;
     camera.offset = (Vector2) {
         .x = GLOBAL.SCREEN_WIDTH/2.0,
         .y = GLOBAL.SCREEN_HEIGHT/2.0,
@@ -87,12 +148,41 @@ int main() {
     SetTextureFilter(circle_effect_texture, TEXTURE_FILTER_POINT);
     SetTextureFilter(circle_just_effect_texture, TEXTURE_FILTER_POINT);
 
-    Texture heart_texture = LoadTexture("assets\\heart.png");
-
     Texture simple_noise_texture = LoadTexture("assets\\simple-noise.png");
     Texture fire_trail_wave_texture = LoadTexture("assets\\wave.png");
 
     Shader fire_trail_shader = LoadShader(0, "shaders\\fire_trail.fs"); // use default vs
+
+    Background bg = {
+        .background_texture = LoadTexture("assets\\background.png"),
+    };
+    SetTextureFilter(bg.background_texture, TEXTURE_FILTER_TRILINEAR);
+
+    EnemySpawner enemy_spawner = new_enemy_spawner();
+    {
+        Image idle_image = LoadImage("assets\\enemy\\enemy-idle.png");
+        TextureHandle idle_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
+        texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, idle_texture_handle, idle_image);
+
+        Image move_image = LoadImage("assets\\enemy\\enemy-move.png");
+        TextureHandle move_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
+        texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, move_texture_handle, move_image);
+
+        enemy_spawner.enemy_idle_anim_sprite_sheet_texture_handle = idle_texture_handle;
+        enemy_spawner.enemy_move_anim_sprite_sheet_texture_handle = move_texture_handle;
+    }
+
+    TextureHandle heart_beat_ss_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
+    Image heart_beat_ss = LoadImage("assets\\heart-beat.png");
+    texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, heart_beat_ss_texture_handle, heart_beat_ss);
+
+    float heart_beat_anim_frame_count = 8;
+    SpriteSheetAnimation heart_beat_anim = new_sprite_sheet_animation(
+        new_sequence_timer_evenly_spaced(0.1, heart_beat_anim_frame_count, Timer_Repeating),
+        heart_beat_ss_texture_handle,
+        (Vector2) {128, 64},
+        1, heart_beat_anim_frame_count, heart_beat_anim_frame_count
+    );
 
     Player player = player_create_default();
     player.player_skill_show_way = (PlayerSkill_ShowWay) {
@@ -100,8 +190,8 @@ int main() {
             .material = (FireTrailMaterial) {
                 .shader = fire_trail_shader,
                 .time = 0,
-                .noise_speed = 1.0,
-                .wave_speed = 0.6,
+                .noise_speed = 0.7,
+                .wave_speed = 0.7,
                 .noise_texture = simple_noise_texture,
                 .wave_texture = fire_trail_wave_texture,
             },
@@ -110,7 +200,7 @@ int main() {
             .length = 300,
             .girth = 100, // 50,
         },
-        .heart_texture = heart_texture,
+        .heart_beat_anim = heart_beat_anim,
         .portal_texture = circle_texture,
         .portal_vfx_anim = circle_vfx_anim,
         .active = false,
@@ -148,13 +238,38 @@ int main() {
         };
     }
 
-    Enemy enemy = {
-        .collider = {
-            .center = {2*64 + 32, 2*64 + 32},
-            .radius = 20,
-        },
-        .health = 150,
-    };
+    // Vector2 enemy_pos = {2*64 + 32, 2*64 + 32};
+    // Enemy enemy = enemy_create_default();
+    // {
+    //     Image idle_image = LoadImage("assets\\enemy\\enemy-idle.png");
+    //     TextureHandle idle_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
+    //     texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, idle_texture_handle, idle_image);
+
+    //     Image move_image = LoadImage("assets\\enemy\\enemy-move.png");
+    //     TextureHandle move_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
+    //     texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, move_texture_handle, move_image);
+
+    //     float idle_anim_frame_count = 7;
+    //     SpriteSheetAnimation idle_anim = new_sprite_sheet_animation(
+    //         new_sequence_timer_evenly_spaced(0.1, idle_anim_frame_count, Timer_Repeating),
+    //         idle_texture_handle,
+    //         (Vector2) {128, 64},
+    //         1, idle_anim_frame_count, idle_anim_frame_count
+    //     );
+
+    //     float move_anim_frame_count = 4;
+    //     SpriteSheetAnimation move_anim = new_sprite_sheet_animation(
+    //         new_sequence_timer_evenly_spaced(0.1, move_anim_frame_count, Timer_Repeating),
+    //         move_texture_handle,
+    //         (Vector2) {128, 64},
+    //         1, move_anim_frame_count, move_anim_frame_count
+    //     );
+
+    //     enemy.graphics = (EnemyGraphics) {
+    //         .idle_anim = idle_anim,
+    //         .move_anim = move_anim,
+    //     };
+    // }
 
     FireTrail fire_trail_big_left = {
         .material = (FireTrailMaterial) {
@@ -167,8 +282,6 @@ int main() {
         },
         .fire_trail_target_texture = LoadRenderTexture(512, 512),
         .paused = false,
-        // .base = {-500, 500},
-        // .direction = {0, -1},
         .length = 1000,
         .girth = 500,
     };
@@ -194,26 +307,24 @@ int main() {
         }
 
         // -- INPUT START --
-        player_process_input(&GLOBAL, &player, camera);
+        player_process_input(&player, camera);
 
         fire_trail_process_input(&fire_trail_big_left);
         // -- INPUT END --
 
         // -- UPDATE START --
         bullet_manager_update_bullets(&GLOBAL.BULLET_MANAGER, delta_time);
-
-        int enemy_hit_count = bullet_manager_check_bullet_hits(&GLOBAL.BULLET_MANAGER, enemy.collider);
-        if (enemy_hit_count > 0) {
-            int health = enemy.health;
-            int damage = enemy_hit_count * player.bullet_damage;
-            if (enemy.health > 0) {
-                enemy.health -= damage;
-            }
-            printf("Enemy hit: count: %d, damage: %d, health: %d -> %d\n",
-                        enemy_hit_count, damage, health, enemy.health);
+        enemy_spawner_update_enemies(&GLOBAL, &enemy_spawner, &player, delta_time);
+        if (enemy_spawner.count == 0) {
+            enemy_spawner_spawn_at_position(
+                &GLOBAL,
+                &enemy_spawner,
+                Vector2Add(player.position, Vector2Scale(player.direction, 400))
+            );
         }
 
-        player_update(&player, delta_time);
+        player_update(&GLOBAL, &player, delta_time);
+        // enemy_update(&enemy, &player, delta_time);
         fire_trail_update(&fire_trail_big_left, delta_time);
         camera.target = player.position;
         // -- UPDATE END --
@@ -234,6 +345,8 @@ int main() {
             ClearBackground(LIGHTGRAY);
             
             BeginMode2D(camera);
+
+                background_draw(&bg, player.position);
 
                 const int step = 64;
                 const int count_x = (GLOBAL.SCREEN_WIDTH / step) - 1;
@@ -258,7 +371,8 @@ int main() {
                 player_draw(&GLOBAL, &player);
 
                 // Enemy
-                enemy_draw(&enemy);
+                // enemy_draw(&GLOBAL, &enemy);
+                enemy_spawner_draw_enemies(&GLOBAL, &enemy_spawner);
 
                 // Bullets
                 bullet_manager_draw_bullets(&GLOBAL.BULLET_MANAGER);

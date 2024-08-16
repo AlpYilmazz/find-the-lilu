@@ -15,6 +15,7 @@ typedef struct {
 } Timer;
 
 Timer new_timer(float setup_secs, TimerMode mode);
+void reset_timer(Timer* timer);
 void tick_timer(Timer* timer, float delta_time_seconds);
 bool timer_is_finished(Timer* timer);
 
@@ -30,19 +31,10 @@ typedef struct {
 
 SequenceTimer new_sequence_timer(float* checkpoints, int count, TimerMode mode);
 SequenceTimer new_sequence_timer_evenly_spaced(float time_between, int count, TimerMode mode);
+void reset_sequence_timer(SequenceTimer* stimer);
 void tick_sequence_timer(SequenceTimer* stimer, float delta_time_seconds);
 bool sequence_timer_has_pulsed(SequenceTimer* stimer);
 bool sequence_timer_is_finished(SequenceTimer* stimer);
-
-// typedef struct {
-//     bool success;
-//     int count;
-//     int capacity;
-//     Texture* items;
-// } TextureList;
-
-// void TextureList_push_back(TextureList* list, Texture item);
-// TextureList load_texture_directory(const char* dir);
 
 typedef struct {
     SequenceTimer timer;
@@ -73,6 +65,7 @@ SpriteSheetAnimation new_sprite_sheet_animation(
     int cols,
     int count
 );
+void reset_sprite_sheet_animation(SpriteSheetAnimation* anim);
 void tick_sprite_sheet_animation_timer(SpriteSheetAnimation* anim, float delta_time_seconds);
 
 typedef struct {

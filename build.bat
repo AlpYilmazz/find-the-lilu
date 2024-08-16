@@ -23,6 +23,7 @@ set COMPILE=^
     %SRC_DIR%/bullet.c^
     %SRC_DIR%/firetrail.c^
     %SRC_DIR%/player.c^
+    %SRC_DIR%/enemy.c^
     %SRC_DIR%/main.c
 
 mkdir %TARGET_DIR%

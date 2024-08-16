@@ -3,13 +3,14 @@
 #include "raylib.h"
 
 #include "global.h"
+#include "collider.h"
 #include "animation.h"
 #include "bullet.h"
 #include "firetrail.h"
 
 typedef struct {
     FireTrail fire_trail;
-    Texture heart_texture;
+    SpriteSheetAnimation heart_beat_anim;
     Texture portal_texture;
     SpriteSheetAnimation portal_vfx_anim;
     //
@@ -39,6 +40,9 @@ typedef struct {
     //
     Vector2 heart_origin_relative;
     //
+    CircleCollider collider;
+    int health;
+    //
     Vector2 position;
     Vector2 direction;
     float speed;
@@ -49,7 +53,11 @@ typedef struct {
     float rotation_speed_deg;
     //
     Vector2 aim_origin_relative;
+    Vector2 aim_cursor_point;
     Vector2 aim_direction;
+    bool gun_ready;
+    bool do_shoot_this_frame;
+    Timer shoot_cooldown_timer;
     int bullet_damage;
     //
     bool in_shooting_stance;
@@ -57,6 +65,6 @@ typedef struct {
 } Player;
 
 Player player_create_default();
-void player_process_input(GlobalResources* GLOBAL, Player* player, Camera2D camera);
-void player_update(Player* player, float delta_time);
+void player_process_input(Player* player, Camera2D camera);
+void player_update(GlobalResources* GLOBAL, Player* player, float delta_time);
 void player_draw(GlobalResources* GLOBAL, Player* player);
