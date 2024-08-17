@@ -65,6 +65,19 @@ SpriteSheetAnimation new_sprite_sheet_animation(
     int cols,
     int count
 );
+SpriteSheetAnimation new_sprite_sheet_animation_single_row(
+    SequenceTimer timer,
+    TextureHandle sprite_sheet_texture,
+    Vector2 sprite_size,
+    int count
+);
+SpriteSheetAnimation new_sprite_sheet_animation_single_row_even_timer(
+    TextureHandle sprite_sheet_texture,
+    Vector2 sprite_size,
+    int count,
+    float time_between,
+    TimerMode mode
+);
 void reset_sprite_sheet_animation(SpriteSheetAnimation* anim);
 void tick_sprite_sheet_animation_timer(SpriteSheetAnimation* anim, float delta_time_seconds);
 

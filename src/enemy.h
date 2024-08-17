@@ -23,11 +23,6 @@ typedef struct {
     float speed;
 } Enemy;
 
-Enemy enemy_create_default();
-void __enemy_delete();
-void enemy_update(Enemy* enemy, Player* player, float delta_time);
-void enemy_draw(GlobalResources* GLOBAL, Enemy* enemy);
-
 typedef struct {
     TextureHandle enemy_idle_anim_sprite_sheet_texture_handle;
     TextureHandle enemy_move_anim_sprite_sheet_texture_handle;
@@ -37,9 +32,16 @@ typedef struct {
     Enemy* enemies;
 } EnemySpawner;
 
+Enemy enemy_create_default();
+void __enemy_delete();
+void enemy_update(EnemySpawner* enemy_spawner, Enemy* enemy, Player* player, float delta_time);
+void enemy_draw(GlobalResources* GLOBAL, Enemy* enemy);
+
+// EnemySpawner
+
 EnemySpawner new_enemy_spawner();
 void enemy_spawner_spawn_enemy(EnemySpawner* dyn_array, Enemy item);
 void enemy_spawner_swap_remove_enemy(EnemySpawner* dyn_array, int index);
-void enemy_spawner_spawn_at_position(GlobalResources* GLOBAL, EnemySpawner* enemy_spawner, Vector2 position);
+void enemy_spawner_spawn_at_position(EnemySpawner* enemy_spawner, Vector2 position);
 void enemy_spawner_update_enemies(GlobalResources* GLOBAL, EnemySpawner* enemy_spawner, Player* player, float delta_time);
 void enemy_spawner_draw_enemies(GlobalResources* GLOBAL, EnemySpawner* enemy_spawner);

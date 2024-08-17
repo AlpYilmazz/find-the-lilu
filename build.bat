@@ -3,7 +3,7 @@ SETLOCAL
 
 set CC=gcc
 
-set COMPILER_FLAGS=
+set COMPILER_FLAGS=-std=c11
 
 set INCLUDE=-Ivendor/raylib-5.0/include
 set LIB=-Lvendor/raylib-5.0/lib

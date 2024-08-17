@@ -122,13 +122,17 @@ void player_skill_show_way_draw(
 Player player_create_default() {
     return (Player) {
         .graphics = { LAZY_INIT },
+        .audio = { LAZY_INIT },
         .player_skill_show_way = { LAZY_INIT },
         .heart_origin_relative = {28 - (64/2), 74 - (128/2)}, // @HARDCODED
-        .collider = {0}, // TODO
+        .collider = {
+            .center = {0, 0},
+            .radius = 16,
+        },
         .health = 100,
-        .position = 0,
+        .position = {0, 0},
         .direction = {0, -1},
-        .speed = 100,
+        .speed = 0,
         .accelaration = 0,
         .__drag = 0,
         .rotation_direction = 0,
@@ -138,9 +142,10 @@ Player player_create_default() {
         .aim_direction = {1, 0},
         .gun_ready = true,
         .do_shoot_this_frame = false,
-        .shoot_cooldown_timer = new_timer(1, Timer_NonRepeating),
+        .shoot_cooldown_timer = new_timer(1.2, Timer_NonRepeating),
         .bullet_damage = 50,
         .in_shooting_stance = false,
+        .in_shoot_blast = false,
         .reverse_active = false,
     };
 }
@@ -203,6 +208,7 @@ void player_update(GlobalResources* GLOBAL, Player* player, float delta_time) {
         accelaration = drag;
     }
 
+    float prev_speed = player->speed;
     player->speed += accelaration * delta_time;
 
     const float SPEED_HARD_LIMIT = 10000.0;
@@ -224,12 +230,36 @@ void player_update(GlobalResources* GLOBAL, Player* player, float delta_time) {
         player->position,
         Vector2Scale(player->direction, player->speed * delta_time)
     );
+    player->collider.center = player->position;
 
     const float player_rotation_rad = PI/2.0 + Vector2Angle((Vector2) {1, 0}, player->direction);
     const Vector2 aim_origin_relative = Vector2Rotate(player->aim_origin_relative, player_rotation_rad);
     const Vector2 aim_origin = Vector2Add(player->position, aim_origin_relative);
 
     player->aim_direction = Vector2Normalize(Vector2Subtract(player->aim_cursor_point, aim_origin));
+
+    if (prev_speed < EPSILON) {
+        if (player->speed >= EPSILON) {
+            // started moving
+            StopMusicStream(player->audio.motorcycle_idle_audio);
+            PlayMusicStream(player->audio.motorcycle_move_audio);
+        }
+        else { // if (player->speed < EPSILON)
+            // still idle
+            UpdateMusicStream(player->audio.motorcycle_idle_audio);
+        }
+    }
+    else { // if (prev_speed >= EPSILON)
+        if (player->speed >= EPSILON) {
+            // still moving
+            UpdateMusicStream(player->audio.motorcycle_move_audio);
+        }
+        else { // if (player->speed < EPSILON)
+            // started idle
+            StopMusicStream(player->audio.motorcycle_move_audio);
+            PlayMusicStream(player->audio.motorcycle_idle_audio);
+        }
+    }
 
     if (!player->gun_ready) {
         tick_timer(&player->shoot_cooldown_timer, delta_time);
@@ -242,10 +272,32 @@ void player_update(GlobalResources* GLOBAL, Player* player, float delta_time) {
     if (player->do_shoot_this_frame) {
         player->do_shoot_this_frame = false;
     }
+    
+    if (IsMusicStreamPlaying(player->audio.shutgun_blast_audio)) {
+        UpdateMusicStream(player->audio.shutgun_blast_audio);
+    }
+    if (!IsMusicStreamPlaying(player->audio.shutgun_pump_audio)
+        && !player->gun_ready
+        && player->shoot_cooldown_timer.time_elapsed >= player->shoot_cooldown_timer.time_setup/3.0
+    ) {
+        PlayMusicStream(player->audio.shutgun_pump_audio);
+    }
+    if (IsMusicStreamPlaying(player->audio.shutgun_pump_audio)) {
+        UpdateMusicStream(player->audio.shutgun_pump_audio);
+    }
+
+    if (player->in_shoot_blast) {
+        tick_sprite_sheet_animation_timer(&player->graphics.shotgun_blast_anim, delta_time);
+    }
 
     if (player->gun_ready && do_shoot_this_frame) {
         player->gun_ready = false;
+        player->in_shoot_blast = true;
+        reset_sprite_sheet_animation(&player->graphics.shotgun_blast_anim);
         reset_timer(&player->shoot_cooldown_timer);
+
+        StopMusicStream(player->audio.shutgun_blast_audio);
+        PlayMusicStream(player->audio.shutgun_blast_audio);
 
         int bullet_spawn_offset = player->graphics.left_arm_with_gun_texture.width;
         Vector2 bullet_spawn_pos = Vector2Add(
@@ -279,6 +331,10 @@ void player_update(GlobalResources* GLOBAL, Player* player, float delta_time) {
         // printf("Player pos: %0.2f %0.2f\n", player->position.x, player->position.y);
         // printf("Bullet pos: %0.2f %0.2f\n", bullet_spawn_pos.x, bullet_spawn_pos.y);
     }
+
+    if (sequence_timer_is_finished(&player->graphics.shotgun_blast_anim.timer)) {
+        player->in_shoot_blast = false;
+    }
     
     tick_sprite_sheet_animation_timer(&player->graphics.hair_move_anim, delta_time);
     player_skill_show_way_update(&player->player_skill_show_way, delta_time);
@@ -287,16 +343,16 @@ void player_update(GlobalResources* GLOBAL, Player* player, float delta_time) {
 void player_draw(GlobalResources* GLOBAL, Player* player) {
     float player_radius = 50;
 
-    arrow_draw(
-        (Arrow) {
-            .head_radius = 30,
-            .base = player->position,
-            .direction = player->direction,
-            .length = player_radius + 10*10,
-        },
-        5,
-        RED
-    );
+    // arrow_draw(
+    //     (Arrow) {
+    //         .head_radius = 30,
+    //         .base = player->position,
+    //         .direction = player->direction,
+    //         .length = player_radius + 10*10,
+    //     },
+    //     5,
+    //     RED
+    // );
     // DrawCircleV(player->position, player_radius, WHITE);
 
     // typedef struct {
@@ -358,13 +414,15 @@ void player_draw(GlobalResources* GLOBAL, Player* player) {
     // left arm with gun
     if (in_shooting_stance) {
         Vector2 aim_origin_relative = Vector2Rotate(player->aim_origin_relative, DEG2RAD * rotation);
+        Vector2 aim_origin = Vector2Add(player->position, aim_origin_relative);
+
         Texture left_arm_with_gun_texture = graphics->left_arm_with_gun_texture;
         DrawTexturePro(
             left_arm_with_gun_texture,
             (Rectangle) { 0, 0, left_arm_with_gun_texture.width, left_arm_with_gun_texture.height },
             (Rectangle) {
-                .x = player->position.x + aim_origin_relative.x,
-                .y = player->position.y + aim_origin_relative.y,
+                .x = aim_origin.x,
+                .y = aim_origin.y,
                 .width = left_arm_with_gun_texture.width,
                 .height = left_arm_with_gun_texture.height,
             },
@@ -372,11 +430,60 @@ void player_draw(GlobalResources* GLOBAL, Player* player) {
             RAD2DEG * Vector2Angle((Vector2) {1, 0}, player->aim_direction),
             tint
         );
+
+        if (player->in_shoot_blast) {
+            SpriteSheetSprite shutgun_blast = sprite_sheet_get_current_sprite(&graphics->shotgun_blast_anim);
+            Texture* shotgun_blast_texture = texture_assets_get_texture_unchecked(
+                &GLOBAL->TEXTURE_ASSETS,
+                shutgun_blast.texture_handle
+            );
+
+            Vector2 blast_pos = Vector2Add(
+                aim_origin,
+                Vector2Scale(player->aim_direction, left_arm_with_gun_texture.width)
+            );
+            // blast_pos = aim_origin;
+
+            // DrawRectanglePro(
+            //     (Rectangle) {
+            //         .x = blast_pos.x,
+            //         .y = blast_pos.y,// - shutgun_blast.sprite.height/2.0,
+            //         .width = shutgun_blast.sprite.width,
+            //         .height = shutgun_blast.sprite.height,
+            //     },
+            //     (Vector2) { shutgun_blast.sprite.width/2.0, 0 },
+            //     90 + (RAD2DEG * Vector2Angle((Vector2) {1, 0}, player->aim_direction)),
+            //     tint
+            // );
+            // arrow_draw(
+            //     (Arrow) {
+            //         .base = blast_pos,
+            //         .direction = player->aim_direction,
+            //         .length = 128,
+            //         .head_radius = 20,
+            //     },
+            //     5,
+            //     GREEN
+            // );
+            DrawTexturePro(
+                *shotgun_blast_texture,
+                shutgun_blast.sprite,
+                (Rectangle) {
+                    .x = blast_pos.x,
+                    .y = blast_pos.y,
+                    .width = shutgun_blast.sprite.width,
+                    .height = shutgun_blast.sprite.height,
+                },
+                (Vector2) { 0, shutgun_blast.sprite.height/2.0 },
+                RAD2DEG * Vector2Angle((Vector2) {1, 0}, player->aim_direction),
+                tint
+            );
+        }
     }
 
     Vector2 heart_origin_relative = Vector2Rotate(player->heart_origin_relative, DEG2RAD * rotation);
     Vector2 heart_origin = Vector2Add(player->position, heart_origin_relative);
-    Vector2 skill_direction = Vector2Normalize(Vector2Subtract(Vector2Zero(), player->position));
+    Vector2 skill_direction = Vector2Normalize(Vector2Subtract(GLOBAL->LILU_POSITION, player->position));
     player_skill_show_way_draw(
         GLOBAL,
         &player->player_skill_show_way,
@@ -420,6 +527,8 @@ void player_draw(GlobalResources* GLOBAL, Player* player) {
             tint
         );
     }
+
+    // DrawCircleLinesV(player->collider.center, player->collider.radius, GREEN);
 
     // --
 

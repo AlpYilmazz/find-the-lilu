@@ -32,10 +32,19 @@ typedef struct {
     Texture hair_idle_texture;
     // Image hair_move_image;
     SpriteSheetAnimation hair_move_anim;
+    SpriteSheetAnimation shotgun_blast_anim;
 } PlayerGraphics;
 
 typedef struct {
+    Music motorcycle_idle_audio;
+    Music motorcycle_move_audio;
+    Music shutgun_blast_audio;
+    Music shutgun_pump_audio;
+} PlayerAudio;
+
+typedef struct {
     PlayerGraphics graphics;
+    PlayerAudio audio;
     PlayerSkill_ShowWay player_skill_show_way;
     //
     Vector2 heart_origin_relative;
@@ -61,6 +70,7 @@ typedef struct {
     int bullet_damage;
     //
     bool in_shooting_stance;
+    bool in_shoot_blast;
     bool reverse_active;
 } Player;
 

@@ -37,17 +37,25 @@ void __enemy_delete(Enemy* enemy) {
     free(enemy->graphics.move_anim.timer.checkpoints);
 }
 
-void enemy_update(Enemy* enemy, Player* player, float delta_time) {
+void enemy_update(EnemySpawner* enemy_spawner, Enemy* enemy, Player* player, float delta_time) {
     const float FOLLOW_RADIUS = 500;
     bool close_to_player = Vector2DistanceSqr(enemy->position, player->position) <= FOLLOW_RADIUS * FOLLOW_RADIUS;
     if (!enemy->moving && close_to_player) {
         enemy->moving = true;
         reset_sprite_sheet_animation(&enemy->graphics.idle_anim);
     }
-    else if (enemy->moving && !close_to_player) {
-        enemy->moving = false;
-        reset_sprite_sheet_animation(&enemy->graphics.move_anim);
-    }
+    // else if (enemy->moving && !close_to_player) {
+    //     enemy->moving = false;
+    //     reset_sprite_sheet_animation(&enemy->graphics.move_anim);
+
+    //     enemy_spawner_spawn_at_position(
+    //         enemy_spawner,
+    //         Vector2Add(
+    //             player->position,
+    //             Vector2Scale(Vector2Rotate(player->direction, DEG2RAD * 20), 600)
+    //         )
+    //     );
+    // }
 
     if (enemy->moving) {
         enemy->direction = Vector2Normalize(Vector2Subtract(player->position, enemy->position));
@@ -90,8 +98,8 @@ void enemy_draw(GlobalResources* GLOBAL, Enemy* enemy) {
         WHITE
     );
 
-    Color color = (enemy->health > 0) ? GREEN : RED;
-    DrawCircleLinesV(enemy->collider.center, enemy->collider.radius, color);
+    // Color color = (enemy->health > 0) ? GREEN : RED;
+    // DrawCircleLinesV(enemy->collider.center, enemy->collider.radius, color);
 }
 
 // EnemySpawner
@@ -131,9 +139,24 @@ void enemy_spawner_swap_remove_enemy(EnemySpawner* dyn_array, int index) {
     items[index] = items[dyn_array->count];
 }
 
-void enemy_spawner_spawn_at_position(GlobalResources* GLOBAL, EnemySpawner* enemy_spawner, Vector2 position) {
+void enemy_spawner_spawn_at_position(EnemySpawner* enemy_spawner, Vector2 position) {
     Enemy enemy = {
-        .graphics = { LAZY_INIT },
+        .graphics = {
+            .idle_anim = new_sprite_sheet_animation_single_row_even_timer(
+                enemy_spawner->enemy_idle_anim_sprite_sheet_texture_handle,
+                (Vector2) {128, 64},
+                7,      // frame count
+                0.1,    // time between frames
+                Timer_Repeating
+            ),
+            .move_anim = new_sprite_sheet_animation_single_row_even_timer(
+                enemy_spawner->enemy_move_anim_sprite_sheet_texture_handle,
+                (Vector2) {128, 64},
+                4,      // frame count
+                0.1,    // time between frames
+                Timer_Repeating
+            ),
+        },
         .collider = {
             .center = position,
             .radius = 16,
@@ -143,28 +166,6 @@ void enemy_spawner_spawn_at_position(GlobalResources* GLOBAL, EnemySpawner* enem
         .speed = 300,
         .moving = false,
     };
-    {
-        float idle_anim_frame_count = 7;
-        SpriteSheetAnimation idle_anim = new_sprite_sheet_animation(
-            new_sequence_timer_evenly_spaced(0.1, idle_anim_frame_count, Timer_Repeating),
-            enemy_spawner->enemy_idle_anim_sprite_sheet_texture_handle,
-            (Vector2) {128, 64},
-            1, idle_anim_frame_count, idle_anim_frame_count
-        );
-
-        enemy.graphics.idle_anim = idle_anim;
-    }
-    {
-        float move_anim_frame_count = 4;
-        SpriteSheetAnimation move_anim = new_sprite_sheet_animation(
-            new_sequence_timer_evenly_spaced(0.1, move_anim_frame_count, Timer_Repeating),
-            enemy_spawner->enemy_move_anim_sprite_sheet_texture_handle,
-            (Vector2) {128, 64},
-            1, move_anim_frame_count, move_anim_frame_count
-        );
-        
-        enemy.graphics.move_anim = move_anim;
-    }
 
     enemy_spawner_spawn_enemy(enemy_spawner, enemy);
 }
@@ -184,7 +185,20 @@ void enemy_spawner_update_enemies(GlobalResources* GLOBAL, EnemySpawner* enemy_s
             enemy_spawner_swap_remove_enemy(enemy_spawner, i);
             i--; // handle this index again
         }
-        enemy_update(enemy, player, delta_time);
+        enemy_update(enemy_spawner, enemy, player, delta_time);
+    }
+
+    for (int i = 0; i < enemy_spawner->count; i++) {
+        Enemy* enemy = &enemy_spawner->enemies[i];
+        bool enemy_hit = collide_circle_circle(player->collider, enemy->collider);
+        if (enemy_hit) {
+            int enemy_damage = 10;
+            player->health -= enemy_damage;
+            enemy->position = Vector2Add(
+                enemy->position,
+                Vector2Scale(Vector2Negate(enemy->direction), 10 * enemy->collider.radius)
+            );
+        }
     }
 }
 
@@ -193,4 +207,10 @@ void enemy_spawner_draw_enemies(GlobalResources* GLOBAL, EnemySpawner* enemy_spa
         Enemy* enemy = &enemy_spawner->enemies[i];
         enemy_draw(GLOBAL, enemy);
     }
+}
+
+// Enemy Spawn Strategies
+
+void enemy_spawn_strategy_line_formation(GlobalResources* GLOBAL, EnemySpawner* enemy_spawner) {
+    // TODO
 }

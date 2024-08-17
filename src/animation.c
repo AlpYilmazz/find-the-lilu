@@ -197,6 +197,35 @@ SpriteSheetAnimation new_sprite_sheet_animation(
     };
 }
 
+SpriteSheetAnimation new_sprite_sheet_animation_single_row(
+    SequenceTimer timer,
+    TextureHandle sprite_sheet_texture,
+    Vector2 sprite_size,
+    int count
+) {
+    return new_sprite_sheet_animation(
+        timer,
+        sprite_sheet_texture,
+        sprite_size,
+        1, count, count
+    );
+}
+
+SpriteSheetAnimation new_sprite_sheet_animation_single_row_even_timer(
+    TextureHandle sprite_sheet_texture,
+    Vector2 sprite_size,
+    int count,
+    float time_between,
+    TimerMode mode
+) {
+    return new_sprite_sheet_animation(
+        new_sequence_timer_evenly_spaced(time_between, count, mode),
+        sprite_sheet_texture,
+        sprite_size,
+        1, count, count
+    );
+}
+
 void reset_sprite_sheet_animation(SpriteSheetAnimation* anim) {
     reset_sequence_timer(&anim->timer);
     anim->current_sprite_ind = 0;
@@ -214,20 +243,14 @@ void tick_sprite_sheet_animation_timer(SpriteSheetAnimation* anim, float delta_t
 
 SpriteSheetSprite sprite_sheet_get_current_sprite(SpriteSheetAnimation* anim) {
     if (anim->count == 0) {
-        printf("werwe\n");
         return (SpriteSheetSprite) {
             .texture_handle = primary_texture_handle(),
             .sprite = {0, 0, 1, 1},
         };
     }
-    printf("htyntyr\n");
 
     int r = anim->current_sprite_ind / anim->cols;
     int c = anim->current_sprite_ind % anim->cols;
-    printf("vcxxc\n");
-    printf("anim ind: %d [%d]\n", anim->current_sprite_ind, anim->count);
-    printf("sprite size: %0.2f %0.2f\n", anim->sprite_size.x, anim->sprite_size.y);
-    printf("row col: %d %d\n", anim->rows, anim->cols);
 
     return (SpriteSheetSprite) {
         .texture_handle = anim->sprite_sheet_texture,

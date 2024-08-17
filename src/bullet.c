@@ -41,8 +41,9 @@ bool bullet_update(Bullet* bullet, float delta_time) {
 }
 
 void bullet_draw(Bullet* bullet) {
-    DrawLineEx(bullet->start_position, bullet->position, bullet->collider.radius/2.0, BEIGE);
-    DrawCircleV(bullet->position, bullet->collider.radius, RED);
+    Color bullet_trail_color = { 255, 236, 145, 100 };
+    DrawLineEx(bullet->start_position, bullet->position, bullet->collider.radius/2.0, bullet_trail_color);
+    DrawCircleV(bullet->position, bullet->collider.radius, BLACK);
 }
 
 // BulletManager
