@@ -214,8 +214,8 @@ int main() {
         global_set_screen_size(1920, 1080);
         
         GLOBAL.LILU_POSITION = (Vector2) {
-            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_WIDTH) * 100.0,
-            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_HEIGHT) * 100.0,
+            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_WIDTH) * 10.0,
+            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_HEIGHT) * 10.0,
         };
 
         GLOBAL.TEXTURE_ASSETS = new_texture_assets();

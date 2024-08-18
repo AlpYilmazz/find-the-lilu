@@ -192,11 +192,11 @@ void enemy_spawner_update_enemies(GlobalResources* GLOBAL, EnemySpawner* enemy_s
         Enemy* enemy = &enemy_spawner->enemies[i];
         bool enemy_hit = collide_circle_circle(player->collider, enemy->collider);
         if (enemy_hit) {
-            int enemy_damage = 10;
+            int enemy_damage = 5;
             player->health -= enemy_damage;
             enemy->position = Vector2Add(
                 enemy->position,
-                Vector2Scale(Vector2Negate(enemy->direction), 20 * enemy->collider.radius)
+                Vector2Scale(Vector2Negate(enemy->direction), 30 * enemy->collider.radius)
             );
         }
     }
