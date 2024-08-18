@@ -148,7 +148,6 @@ void goddess_lilu_update(float delta_time) {
     else {
         tick_sprite_sheet_animation_timer(&LILU_SPAWN_ANIM, delta_time);
         if (sequence_timer_is_finished(&LILU_SPAWN_ANIM.timer)) {
-            printf("LILU SPAWNED\n");
             LILU_SPAWNED = true;
         }
     }
@@ -167,10 +166,6 @@ void goddess_lilu_draw() {
     }
 
     Texture* lilu_texture = texture_assets_get_texture_unchecked(&GLOBAL.TEXTURE_ASSETS, lilu.texture_handle);
-    printf("Lilu Tex: [%d %d %d %d] [%d %d]\n"
-        , (int)lilu.sprite.x, (int)lilu.sprite.y, (int)lilu.sprite.width, (int)lilu.sprite.height
-        , lilu_texture->width, lilu_texture->height
-    );
 
     DrawTexturePro(
         *lilu_texture,
@@ -185,19 +180,6 @@ void goddess_lilu_draw() {
         0,
         WHITE
     );
-
-    // DrawRectangleLinesEx(
-    //     (Rectangle) {
-    //         .x = GLOBAL.LILU_POSITION.x - lilu_size.x/2.0,
-    //         .y = GLOBAL.LILU_POSITION.y - lilu_size.y/2.0,
-    //         .width = lilu_size.x,
-    //         .height = lilu_size.y,
-    //     },
-    //     10,
-    //     GREEN
-    // );
-
-    // DrawCircleV(GLOBAL.LILU_POSITION, 100, RED);
 }
 
 int main() {
