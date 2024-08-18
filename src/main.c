@@ -422,7 +422,7 @@ int main() {
             paused = true;
             lilu_found = true;
             camera.target = GLOBAL.LILU_POSITION;
-            printf("LILU FOUND\n");
+            // printf("LILU FOUND\n");
         }
 
         PAUSE_CHECK:
@@ -556,7 +556,11 @@ int main() {
         if (timer_is_finished(&enemy_spawn_timer)) {
             enemy_spawner_spawn_at_position(
                 &enemy_spawner,
-                Vector2Add(player.position, Vector2Scale(player.direction, 400))
+                Vector2Add(player.position, Vector2Scale(Vector2Rotate(player.direction, DEG2RAD * 90), 400))
+            );
+            enemy_spawner_spawn_at_position(
+                &enemy_spawner,
+                Vector2Add(player.position, Vector2Scale(Vector2Rotate(player.direction, DEG2RAD * -90), 400))
             );
         }
 

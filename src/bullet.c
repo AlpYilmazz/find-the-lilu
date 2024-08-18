@@ -146,7 +146,7 @@ int bullet_manager_check_bullet_hits(BulletManager* bullet_manager, CircleCollid
                 bullet_collider.center = bullet_position;
                 
                 if (__iter == MAX_ITER-1) {
-                    printf("MAX ITER REACHED\n");
+                    // printf("MAX ITER REACHED\n");
                 }
             }
         }
