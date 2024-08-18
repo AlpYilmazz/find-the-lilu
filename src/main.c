@@ -112,6 +112,8 @@ void init_goddess_lilu() {
         TextureHandle lilu_spawn_ss_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
         Image lilu_spawn_anim_image = LoadImage("assets\\lilu-spawn.png");
         texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, lilu_spawn_ss_texture_handle, lilu_spawn_anim_image);
+        Texture* tx = texture_assets_get_texture_unchecked(&GLOBAL.TEXTURE_ASSETS, lilu_spawn_ss_texture_handle);
+        SetTextureFilter(*tx, TEXTURE_FILTER_POINT);
         // UnloadImage(lilu_spawn_anim_image);
         
         LILU_SPAWN_ANIM = new_sprite_sheet_animation_single_row_even_timer(
@@ -126,6 +128,8 @@ void init_goddess_lilu() {
         TextureHandle lilu_ss_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
         Image lilu_anim_image = LoadImage("assets\\lilu.png");
         texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, lilu_ss_texture_handle, lilu_anim_image);
+        Texture* tx = texture_assets_get_texture_unchecked(&GLOBAL.TEXTURE_ASSETS, lilu_ss_texture_handle);
+        SetTextureFilter(*tx, TEXTURE_FILTER_POINT);
         
         LILU_ANIM = new_sprite_sheet_animation_single_row_even_timer(
             lilu_ss_texture_handle,
