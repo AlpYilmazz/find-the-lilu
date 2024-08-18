@@ -98,26 +98,28 @@ void background_draw(Background* background, Vector2 player_position) {
 // LILU
 
 bool LILU_SPAWNED = false;
-Vector2 LILU_SIZE = { LAZY_INIT };
-SpriteSheetAnimation LILU_SPAWN_ANIM = { LAZY_INIT };
-SpriteSheetAnimation LILU_ANIM = { LAZY_INIT };
+Vector2 LILU_SPAWN_SIZE;
+Vector2 LILU_SIZE;
+SpriteSheetAnimation LILU_SPAWN_ANIM;
+SpriteSheetAnimation LILU_ANIM;
 
 void init_goddess_lilu() {
-    // TODO
-    LILU_SIZE = (Vector2) { UNINIT, UNINIT };
+    // GLOBAL.LILU_POSITION = (Vector2) {300, -300};
+    LILU_SPAWN_SIZE = (Vector2) { 1920, 1080 };
+    LILU_SIZE = (Vector2) { 4 * 128, 4 * 192 };
 
     {
         TextureHandle lilu_spawn_ss_texture_handle = texture_assets_reserve_texture_slot(&GLOBAL.TEXTURE_ASSETS);
         Image lilu_spawn_anim_image = LoadImage("assets\\lilu-spawn.png");
         texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, lilu_spawn_ss_texture_handle, lilu_spawn_anim_image);
+        // UnloadImage(lilu_spawn_anim_image);
         
-        // TODO
         LILU_SPAWN_ANIM = new_sprite_sheet_animation_single_row_even_timer(
             lilu_spawn_ss_texture_handle,
-            (Vector2) { UNINIT, UNINIT },
-            UNINIT,
-            UNINIT,
-            Timer_Repeating
+            (Vector2) { 480, 270 },
+            11,
+            0.15,
+            Timer_NonRepeating
         );
     }
     {
@@ -125,12 +127,11 @@ void init_goddess_lilu() {
         Image lilu_anim_image = LoadImage("assets\\lilu.png");
         texture_assets_put_image_and_create_texture(&GLOBAL.TEXTURE_ASSETS, lilu_ss_texture_handle, lilu_anim_image);
         
-        // TODO
         LILU_ANIM = new_sprite_sheet_animation_single_row_even_timer(
             lilu_ss_texture_handle,
-            (Vector2) { UNINIT, UNINIT },
-            UNINIT,
-            UNINIT,
+            (Vector2) { 128, 192 },
+            4,
+            0.2,
             Timer_Repeating
         );
     }
@@ -143,6 +144,7 @@ void goddess_lilu_update(float delta_time) {
     else {
         tick_sprite_sheet_animation_timer(&LILU_SPAWN_ANIM, delta_time);
         if (sequence_timer_is_finished(&LILU_SPAWN_ANIM.timer)) {
+            printf("LILU SPAWNED\n");
             LILU_SPAWNED = true;
         }
     }
@@ -150,28 +152,48 @@ void goddess_lilu_update(float delta_time) {
 
 void goddess_lilu_draw() {
     SpriteSheetSprite lilu;
+    Vector2 lilu_size;
     if (LILU_SPAWNED) {
         lilu = sprite_sheet_get_current_sprite(&LILU_ANIM);
+        lilu_size = LILU_SIZE;
     }
     else {
         lilu = sprite_sheet_get_current_sprite(&LILU_SPAWN_ANIM);
+        lilu_size = LILU_SPAWN_SIZE;
     }
 
     Texture* lilu_texture = texture_assets_get_texture_unchecked(&GLOBAL.TEXTURE_ASSETS, lilu.texture_handle);
+    printf("Lilu Tex: [%d %d %d %d] [%d %d]\n"
+        , (int)lilu.sprite.x, (int)lilu.sprite.y, (int)lilu.sprite.width, (int)lilu.sprite.height
+        , lilu_texture->width, lilu_texture->height
+    );
 
     DrawTexturePro(
         *lilu_texture,
         lilu.sprite,
         (Rectangle) {
-            .x = GLOBAL.LILU_POSITION.x - LILU_SIZE.x/2.0,
-            .y = GLOBAL.LILU_POSITION.y - LILU_SIZE.y/2.0,
-            .width = LILU_SIZE.x,
-            .height = LILU_SIZE.y,
+            .x = GLOBAL.LILU_POSITION.x - lilu_size.x/2.0,
+            .y = GLOBAL.LILU_POSITION.y - lilu_size.y/2.0,
+            .width = lilu_size.x,
+            .height = lilu_size.y,
         },
         (Vector2) { 0, 0 },
         0,
         WHITE
     );
+
+    // DrawRectangleLinesEx(
+    //     (Rectangle) {
+    //         .x = GLOBAL.LILU_POSITION.x - lilu_size.x/2.0,
+    //         .y = GLOBAL.LILU_POSITION.y - lilu_size.y/2.0,
+    //         .width = lilu_size.x,
+    //         .height = lilu_size.y,
+    //     },
+    //     10,
+    //     GREEN
+    // );
+
+    // DrawCircleV(GLOBAL.LILU_POSITION, 100, RED);
 }
 
 int main() {
@@ -188,8 +210,8 @@ int main() {
         global_set_screen_size(1920, 1080);
         
         GLOBAL.LILU_POSITION = (Vector2) {
-            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_WIDTH), // * 100.0,
-            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_HEIGHT), //  * 100.0,
+            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_WIDTH) * 100.0,
+            ((GetRandomValue(0, 1) == 0) ? -1 : 1) * ((float)GLOBAL.SCREEN_HEIGHT) * 100.0,
         };
 
         GLOBAL.TEXTURE_ASSETS = new_texture_assets();
@@ -410,10 +432,11 @@ int main() {
         if (player.health <= 0) {
             paused = true;
         }
-        if (Vector2Distance(player.position, GLOBAL.LILU_POSITION) <= 100) {
+        if (!lilu_found && Vector2Distance(player.position, GLOBAL.LILU_POSITION) <= 200) {
             paused = true;
             lilu_found = true;
             camera.target = GLOBAL.LILU_POSITION;
+            printf("LILU FOUND\n");
         }
 
         PAUSE_CHECK:
@@ -486,37 +509,41 @@ int main() {
                     fire_trail_draw(&fire_trail_big_left, fire_trail_big_left_position, fire_trail_big_left_direction);
                 EndMode2D();
 
-                    #define TITLE_PARTS 8
-                    const char* title[TITLE_PARTS] = {
-                        "ADAMIN",
-                        "Kalbindeki yanan tutkuyla",
-                        "Etrafindaki kimseyi gormeden",
-                        "Ve fark etmeden",
-                        "Dunyanin neresinde",
-                        "Olursa olsun",
-                        "LILUSUNU",
-                        "Bulma oyunu",
-                    };
-                    Font font = GetFontDefault();
-                    for (int i = 0; i < TITLE_PARTS; i++) {
-                        const char* text = title[i];
-                        float font_size = 80;
-                        float spacing = 5;
-                        Vector2 size = MeasureTextEx(font, text, font_size, spacing);
-                        DrawTextEx(
-                            font,
-                            text,
-                            (Vector2) {
-                                -200 + GLOBAL.SCREEN_WIDTH/2,
-                                100 + i*(size.y + size.y/4.0),
-                            },
-                            font_size,
-                            spacing,
-                            (i == 0) ? RED
-                                : (i == TITLE_PARTS-1 - 1) ? YELLOW
-                                : RAYWHITE
-                        );
+                #define TITLE_PARTS 8
+                const char* title[TITLE_PARTS] = {
+                    "ADAMIN",
+                    "Kalbindeki yanan tutkuyla",
+                    "Etrafindaki kimseyi gormeden",
+                    "Ve fark etmeden",
+                    "Dunyanin neresinde",
+                    "Olursa olsun",
+                    "LILUSUNU",
+                    "Bulmasi oyunu",
+                };
+                Font font = GetFontDefault();
+                for (int i = 0; i < TITLE_PARTS; i++) {
+                    const char* text = title[i];
+                    float font_size = 80;
+                    float spacing = 5;
+                    Vector2 size = MeasureTextEx(font, text, font_size, spacing);
+                    Color color = (i == 0) ? RED
+                            : (i == TITLE_PARTS-1 - 1) ? YELLOW
+                            : RAYWHITE;
+                    if (lilu_found) {
+                        color.a = (int)(0.3 * 255.0);
                     }
+                    DrawTextEx(
+                        font,
+                        text,
+                        (Vector2) {
+                            -200 + GLOBAL.SCREEN_WIDTH/2,
+                            100 + i*(size.y + size.y/4.0),
+                        },
+                        font_size,
+                        spacing,
+                        color
+                    );
+                }
             EndDrawing();
 
             continue;

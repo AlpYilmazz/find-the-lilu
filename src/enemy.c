@@ -196,7 +196,7 @@ void enemy_spawner_update_enemies(GlobalResources* GLOBAL, EnemySpawner* enemy_s
             player->health -= enemy_damage;
             enemy->position = Vector2Add(
                 enemy->position,
-                Vector2Scale(Vector2Negate(enemy->direction), 10 * enemy->collider.radius)
+                Vector2Scale(Vector2Negate(enemy->direction), 20 * enemy->collider.radius)
             );
         }
     }
